@@ -106,6 +106,8 @@ if __name__ == '__main__':
     image_path = "images/zeman_putin_2017.jpg"
     #image_path = "images/putin_minsk_2015.png"
     #image_path = "images/putin_makron_merkel_2017.png"
+    image_path = "fake_data/putin2019_zelinskyfake_makron2019_v2.png"
+    image_path = "fake_data/zelensky.jpg"
 
     # load image as np array
     in_img = cv2.imread(image_path)
@@ -185,19 +187,13 @@ if __name__ == '__main__':
         # posteriors
         for j in idx:
             print(predictions[j]['age_posterior'])
-            score[predictions[j]['birthdate']-start_year:predictions[j]['birthdate']-start_year+len(predictions[j]['age_posterior'].flatten())] += np.log(np.array(predictions[j]['age_posterior'].flatten()))
-
+            score[predictions[j]['birthdate']-start_year:predictions[j]['birthdate']-start_year+len(predictions[j]['age_posterior'].flatten())] += np.log(np.array(predictions[j]['age_posterior'].flatten().cpu()))
 
         score[score==0] = -np.inf
+        score[:1990-start_year] = -np.inf
+        score[2025-start_year:] = -np.inf
         score = np.exp(score)
         probability = score / np.sum(score)
-
-
-        # predictions
-        #for i, y in enumerate(years):
-        #    score[i] = 0
-        #    for j in idx:
-        #        score[i] += np.abs(y - predictions[j]["birthdate"]-predictions[j]["age_pred"])
                 
     # draw labeled boxes
     out_img = in_img.copy()
@@ -220,6 +216,7 @@ if __name__ == '__main__':
     plt.plot(years, probability)
     plt.xlabel("Year")
     plt.ylabel("Probability")
+    plt.xlim([1990, 2025])
     plt.grid()
     plt.savefig(out_img_path)
 
