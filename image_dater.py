@@ -103,9 +103,9 @@ if __name__ == '__main__':
 #    image_path = "images/zeman_2024.png"
     #image_path = "images/milos_zeman_with_wife.jpeg"
 #    image_path = "images/zemanem_necas_2013.jpg"
-#    image_path = "images/zeman_putin_2017.jpg"
-#    image_path = "images/putin_minsk_2015.png"
-    image_path = "images/putin_makron_merkel_2017.png"
+    image_path = "images/zeman_putin_2017.jpg"
+    #image_path = "images/putin_minsk_2015.png"
+    #image_path = "images/putin_makron_merkel_2017.png"
 
     # load image as np array
     in_img = cv2.imread(image_path)
@@ -118,13 +118,13 @@ if __name__ == '__main__':
 
     #
     faces = face_engine.get(in_img)
-    rimg = face_engine.draw_on(in_img, faces)
+    #rimg = face_engine.draw_on(in_img, faces)
     #cv2.imwrite("./output.jpg", rimg)
 
     ## init facis prediction model
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    predictor_model = "models/000_model_cpu.pt"
-#    predictor_model = "models/model_distilled_cpu.pt"
+    #predictor_model = "models/000_model_cpu.pt"
+    predictor_model = "models/model_distilled_gpu.pt"
     #predictor_model = "models/cpu_age_ensemble.pt"
     model = FacePredictor(predictor_model, device)
 
@@ -135,6 +135,7 @@ if __name__ == '__main__':
     # get boxes, attributes and landmarks
     bboxes = model.get_bboxes()
     predictions = model.get_attributes(attribute_subset=["age_pred"])
+    posteriors = model.get_attributes(attribute_subset=["age_posterior"])
     #landmarks = model.get_landmarks()
 
     # match landmarks with bboxes and get face descriptors
@@ -165,6 +166,7 @@ if __name__ == '__main__':
 #            predictions[i]["name"] = f"{names[idx]}({cosine_similarity[idx]:.1f})"
             predictions[i]["name"] = f"{names[idx]}"
             predictions[i]["birthdate"] = birth_dates[idx]
+            predictions[i]["age_posterior"] = posteriors[i]['age_posterior']
 
     # find the most likely creation year
     idx = []
@@ -175,12 +177,27 @@ if __name__ == '__main__':
             predictions[i]["name"] = "???"
 
     if len(idx) > 0:
-        years = np.linspace(1990, 2024, 2024-1990+1, dtype=int)
-        score = np.zeros(len(years))
-        for i, y in enumerate(years):
-            score[i] = 0
-            for j in idx:
-                score[i] += np.abs(y - predictions[j]["birthdate"]-predictions[j]["age_pred"])
+        start_year = 1940
+        end_year = 2100
+        years = np.arange(start_year, end_year, 1, dtype=int)
+        score = np.zeros(len(years), dtype=float)
+
+        # posteriors
+        for j in idx:
+            print(predictions[j]['age_posterior'])
+            score[predictions[j]['birthdate']-start_year:predictions[j]['birthdate']-start_year+len(predictions[j]['age_posterior'].flatten())] += np.log(np.array(predictions[j]['age_posterior'].flatten()))
+
+
+        score[score==0] = -np.inf
+        score = np.exp(score)
+        probability = score / np.sum(score)
+
+
+        # predictions
+        #for i, y in enumerate(years):
+        #    score[i] = 0
+        #    for j in idx:
+        #        score[i] += np.abs(y - predictions[j]["birthdate"]-predictions[j]["age_pred"])
                 
     # draw labeled boxes
     out_img = in_img.copy()
@@ -200,8 +217,9 @@ if __name__ == '__main__':
     plt.rcParams.update({'font.size': 20})
     plt.rcParams.update({'figure.autolayout': True})
     plt.figure(figsize=(10, 5)) 
-    plt.plot(years, score)
+    plt.plot(years, probability)
     plt.xlabel("Year")
+    plt.ylabel("Probability")
     plt.grid()
     plt.savefig(out_img_path)
 
