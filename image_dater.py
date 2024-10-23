@@ -54,6 +54,16 @@ def is_in_bbox(x, y, bbox):
     return True    
 
 
+def compute_prediction_year(probability, years):
+    q = 0
+    for i in range(len(probability)):
+        q += probability[i]
+        if q > 0.5:
+            prediction_year = years[i]
+            break
+    return prediction_year
+
+
 def get_identity_templates( app ):
     
     # go over subdirectories in "data/", load all images and represent them as templates
@@ -102,12 +112,14 @@ if __name__ == '__main__':
 #    image_path = "images/04005471.jpeg"
 #    image_path = "images/zeman_2024.png"
     #image_path = "images/milos_zeman_with_wife.jpeg"
-#    image_path = "images/zemanem_necas_2013.jpg"
-    image_path = "images/zeman_putin_2017.jpg"
+    #image_path = "images/zemanem_necas_2013.jpg"
+    #image_path = "images/zeman_putin_2017.jpg"
     #image_path = "images/putin_minsk_2015.png"
     #image_path = "images/putin_makron_merkel_2017.png"
-    image_path = "fake_data/putin2019_zelinskyfake_makron2019_v2.png"
-    image_path = "fake_data/zelensky.jpg"
+    #image_path = "images/putin2019_zelinskyfake_makron2019_v2.png"
+    image_path = "images/putin_gen_2016-fake.png"
+    #image_path = "images/putin_orban_2015.jpeg"
+    #image_path = "fake_data/zelensky.jpg"
 
     # load image as np array
     in_img = cv2.imread(image_path)
@@ -194,7 +206,10 @@ if __name__ == '__main__':
         score[2025-start_year:] = -np.inf
         score = np.exp(score)
         probability = score / np.sum(score)
-                
+        # find the 50 quantil of the probability
+        prediction_year = compute_prediction_year(probability, years)
+        print(f"Prediction year: {prediction_year}")
+
     # draw labeled boxes
     out_img = in_img.copy()
     out_img = Image.fromarray(in_img)    
@@ -217,6 +232,9 @@ if __name__ == '__main__':
     plt.xlabel("Year")
     plt.ylabel("Probability")
     plt.xlim([1990, 2025])
+    # plot vertical line at the prediction year
+    plt.axvline(x=prediction_year, color='r', linestyle='--',linewidth=2,label=f"Prediction year: {prediction_year}")
+    plt.legend()
     plt.grid()
     plt.savefig(out_img_path)
 
